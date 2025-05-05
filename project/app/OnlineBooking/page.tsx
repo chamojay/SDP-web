@@ -8,6 +8,7 @@ import {
   Button, 
   Typography, 
   TextField,
+  Grid,
   Paper,
   CircularProgress,
   Table,
@@ -16,33 +17,43 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Checkbox,
+  FormControl,
+  FormLabel,
+  Radio,
+  RadioGroup,
   FormControlLabel,
-  Autocomplete
+  Autocomplete,
+  Card,
+  CardMedia,
+  CardContent,
+  Snackbar,
+  Alert
 } from '@mui/material';
-import Grid from '@mui/material/Grid';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { reservationService } from '@/app/services/reservationService';
 import { Room } from '@/types/reservationtypes';
+import { format } from 'date-fns';
 
-// Updated steps array to include 'Review Invoice' as the 5th step
-const steps = ['Select Dates', 'Choose Room', 'Guest Details', 'Reservation Details', 'Review Invoice'];
+const steps = ['Select Dates', 'Choose Room', 'Reservation Details', 'Review Invoice', 'Guest Details', 'Payment'];
 
 const CheckInComponent = () => {
   const [activeStep, setActiveStep] = useState(0);
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
+  const [checkIn, setCheckIn] = useState<Date | null>(null);
+  const [checkOut, setCheckOut] = useState<Date | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isSriLankan, setIsSriLankan] = useState(true); // Default to true
+  const [nationality, setNationality] = useState<'Local' | 'Foreigner'>('Local');
   const [customerData, setCustomerData] = useState({
     FirstName: '',
     LastName: '',
     Email: '',
     Phone: '',
-    Country: '',
-    NIC: '',
-    PassportNumber: '',
+    Country: 'Sri Lanka',
+    Nic: '',
+    Passport: ''
   });
   const [reservationData, setReservationData] = useState({
     PackageType: 'RoomOnly',
@@ -52,80 +63,144 @@ const CheckInComponent = () => {
     ArrivalTime: '14:00',
     DepartureTime: '12:00'
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
-  // list of countries 
+  const roomVisuals: Record<string, { image: string; description: string }> = {
+    '101': { 
+      image: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32',
+      description: 'Cozy single room with modern amenities and a beautiful view.'
+    },
+    '102': { 
+      image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2',
+      description: 'Spacious double room with a private balcony.'
+    },
+    '103': { 
+      image: 'https://images.unsplash.com/photo-1578683014728-c73504a258f9',
+      description: 'Luxurious suite with premium furnishings.'
+    }
+  };
+
   const countries = [
-    'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 
-    'Antigua and Barbuda', 'Argentina', 'Armenia', 'Australia', 'Austria', 
-    'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 
-    'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan', 
-    'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 
-    'Bulgaria', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cambodia', 
-    'Cameroon', 'Canada', 'Central African Republic', 'Chad', 'Chile', 
-    'China', 'Colombia', 'Comoros', 'Congo', 'Costa Rica', 
-    'Croatia', 'Cuba', 'Cyprus', 'Czech Republic', 'Democratic Republic of the Congo', 
-    'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'East Timor', 
-    'Ecuador', 'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 
-    'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland', 
-    'France', 'Gabon', 'Gambia', 'Georgia', 'Germany', 
-    'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 
-    'Guinea-Bissau', 'Guyana', 'Haiti', 'Honduras', 'Hungary', 
-    'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 
-    'Ireland', 'Israel', 'Italy', 'Jamaica', 'Japan', 
-    'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kuwait', 
-    'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 
-    'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg', 
-    'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 
-    'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico', 
-    'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 
-    'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru', 
-    'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 
-    'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman', 
-    'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 
-    'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal', 
-    'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 
-    'Saint Lucia', 'Saint Vincent and the Grenadines', 'Samoa', 'San Marino', 'Sao Tome and Principe', 
-    'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 
-    'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia', 
-    'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 
-    'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria', 
-    'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Togo', 
-    'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey', 'Turkmenistan', 
-    'Tuvalu', 'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom', 
-    'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatican City', 
+    'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola',
+    'Antigua and Barbuda', 'Argentina', 'Armenia', 'Australia', 'Austria',
+    'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados',
+    'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan',
+    'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei',
+    'Bulgaria', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cambodia',
+    'Cameroon', 'Canada', 'Central African Republic', 'Chad', 'Chile',
+    'China', 'Colombia', 'Comoros', 'Congo', 'Costa Rica',
+    'Croatia', 'Cuba', 'Cyprus', 'Czech Republic', 'Democratic Republic of the Congo',
+    'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'East Timor',
+    'Ecuador', 'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea',
+    'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland',
+    'France', 'Gabon', 'Gambia', 'Georgia', 'Germany',
+    'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea',
+    'Guinea-Bissau', 'Guyana', 'Haiti', 'Honduras', 'Hungary',
+    'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq',
+    'Ireland', 'Israel', 'Italy', 'Jamaica', 'Japan',
+    'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kuwait',
+    'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho',
+    'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg',
+    'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali',
+    'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico',
+    'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro',
+    'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru',
+    'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger',
+    'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman',
+    'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea',
+    'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal',
+    'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis',
+    'Saint Lucia', 'Saint Vincent and the Grenadines', 'Samoa', 'San Marino', 'Sao Tome and Principe',
+    'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone',
+    'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia',
+    'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka',
+    'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria',
+    'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Togo',
+    'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey', 'Turkmenistan',
+    'Tuvalu', 'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom',
+    'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatican City',
     'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
   ];
 
-  // Country is set to "Sri Lanka" when isSriLankan is true
-  useEffect(() => {
-    if (isSriLankan) {
-      setCustomerData({ ...customerData, Country: 'Sri Lanka' });
+  const validateStep = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    
+    if (activeStep === 0) {
+      if (!checkIn) newErrors.checkIn = 'Check-in date is required';
+      if (!checkOut) newErrors.checkOut = 'Check-out date is required';
+      if (checkIn && checkOut && checkIn >= checkOut) {
+        newErrors.checkOut = 'Check-out date must be after check-in date';
+      }
+    } else if (activeStep === 1) {
+      if (!selectedRoom) newErrors.room = 'Please select a room';
+    } else if (activeStep === 2) {
+      if (reservationData.Adults < 1) newErrors.adults = 'At least one adult is required';
+      if (reservationData.Children < 0) newErrors.children = 'Number of children cannot be negative';
+    } else if (activeStep === 4) {
+      if (!customerData.FirstName) newErrors.FirstName = 'First name is required';
+      if (!customerData.LastName) newErrors.LastName = 'Last name is required';
+      if (!customerData.Email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerData.Email)) {
+        newErrors.Email = 'Valid email is required';
+      }
+      if (!customerData.Phone) newErrors.Phone = 'Phone number is required';
+      if (!customerData.Country) newErrors.Country = 'Country is required';
+      if (nationality === 'Local' && !customerData.Nic) {
+        newErrors.Nic = 'NIC is required for local guests';
+      }
+      if (nationality === 'Foreigner' && !customerData.Passport) {
+        newErrors.Passport = 'Passport number is required for foreign guests';
+      }
     }
-  }, [isSriLankan]);
+
+    console.log('Validation errors:', newErrors);
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  useEffect(() => {
+    setCustomerData({
+      ...customerData,
+      Country: nationality === 'Local' ? 'Sri Lanka' : customerData.Country || '',
+      Nic: nationality === 'Local' ? customerData.Nic : '',
+      Passport: nationality === 'Foreigner' ? customerData.Passport : ''
+    });
+  }, [nationality]);
 
   const handleSearchRooms = async () => {
+    if (!validateStep()) return;
     setLoading(true);
     try {
-      const availableRooms = await reservationService.checkAvailability(checkIn, checkOut);
+      const availableRooms = await reservationService.checkAvailability(
+        format(checkIn!, 'yyyy-MM-dd'),
+        format(checkOut!, 'yyyy-MM-dd')
+      );
       setRooms(availableRooms as Room[]);
       setActiveStep(1);
     } catch (error) {
       console.error('Error fetching rooms:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch available rooms. Please try again.',
+        severity: 'error'
+      });
     }
     setLoading(false);
   };
 
-  // Function to calculate the total amount including package adjustment and taxes
   const calculateTotalAmount = () => {
-    if (!selectedRoom) return null;
+    if (!selectedRoom || !checkIn || !checkOut) return null;
 
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     const numberOfNights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 3600 * 24));
-    const pricePerNight = isSriLankan ? selectedRoom.LocalPrice : selectedRoom.ForeignPrice;
+    const pricePerNight = nationality === 'Local' ? selectedRoom.LocalPrice : selectedRoom.ForeignPrice;
     const baseRoomPrice = pricePerNight * numberOfNights;
 
-    // Adjust price based on package type
     let packageMultiplier = 1;
     if (reservationData.PackageType === 'HalfBoard') {
       packageMultiplier = 1.3;
@@ -134,9 +209,8 @@ const CheckInComponent = () => {
     }
     const adjustedRoomPrice = baseRoomPrice * packageMultiplier;
 
-    // Calculate taxes
-    const serviceCharge = adjustedRoomPrice * 0.10; // 10% service charge
-    const vat = adjustedRoomPrice * 0.18; // 18% VAT
+    const serviceCharge = adjustedRoomPrice * 0.10;
+    const vat = adjustedRoomPrice * 0.18;
     const totalPrice = adjustedRoomPrice + serviceCharge + vat;
 
     return {
@@ -146,23 +220,38 @@ const CheckInComponent = () => {
       vat,
       totalPrice,
       numberOfNights,
-      currency: isSriLankan ? 'LKR' : 'USD'
+      currency: nationality === 'Local' ? 'LKR' : 'USD'
     };
   };
 
   const handleSubmitReservation = async () => {
+    if (!validateStep()) {
+      setSnackbar({
+        open: true,
+        message: 'Please correct the errors in the form before submitting.',
+        severity: 'error'
+      });
+      return;
+    }
     setLoading(true);
     try {
-      if (!selectedRoom) throw new Error('No room selected');
+      if (!selectedRoom) {
+        throw new Error('No room selected');
+      }
+      if (!checkIn || !checkOut) {
+        throw new Error('Check-in or check-out date is missing');
+      }
       const invoice = calculateTotalAmount();
-      if (!invoice) throw new Error('Unable to calculate total amount');
+      if (!invoice) {
+        throw new Error('Unable to calculate total amount');
+      }
 
-      await reservationService.createReservation(
-        selectedRoom.RoomNumber,
-        customerData,
-        {
-          CheckInDate: checkIn,
-          CheckOutDate: checkOut,
+      const reservationPayload = {
+        roomNumber: selectedRoom.RoomNumber,
+        customer: customerData,
+        details: {
+          CheckInDate: format(checkIn, 'yyyy-MM-dd'),
+          CheckOutDate: format(checkOut, 'yyyy-MM-dd'),
           TotalAmount: invoice.totalPrice,
           PackageType: reservationData.PackageType,
           Adults: reservationData.Adults,
@@ -171,19 +260,73 @@ const CheckInComponent = () => {
           ArrivalTime: reservationData.ArrivalTime,
           DepartureTime: reservationData.DepartureTime
         }
+      };
+
+      console.log('Submitting reservation:', reservationPayload);
+
+      const response = await reservationService.createReservation(
+        reservationPayload.roomNumber,
+        reservationPayload.customer,
+        reservationPayload.details
       );
-      setActiveStep(5); // Move to success state after submission
-    } catch (error) {
+
+      console.log('Reservation response:', response);
+
+      setSnackbar({
+        open: true,
+        message: 'Reservation created successfully!',
+        severity: 'success'
+      });
+      setActiveStep(6);
+    } catch (error: any) {
       console.error('Error creating reservation:', error);
+      const errorMessage = error.message || 'An unexpected error occurred';
+      setSnackbar({
+        open: true,
+        message: `Failed to create reservation: ${errorMessage}`,
+        severity: 'error'
+      });
     }
     setLoading(false);
   };
 
-  const invoice = activeStep === 4 ? calculateTotalAmount() : null;
+  const handleNext = () => {
+    if (validateStep()) {
+      setActiveStep((prev) => prev + 1);
+    } else {
+      setSnackbar({
+        open: true,
+        message: 'Please correct the errors before proceeding.',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const invoice = calculateTotalAmount();
 
   return (
-    <Box sx={{ maxWidth: 800, margin: 'auto', p: 3 }}>
-      <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
+    <Box sx={{ 
+      maxWidth: 900, 
+      margin: 'auto', 
+      p: 4, 
+      bgcolor: '#1a472a',
+      borderRadius: 2,
+      color: '#ffffff'
+    }}>
+      <Stepper 
+        activeStep={activeStep} 
+        alternativeLabel 
+        sx={{ 
+          mb: 4, 
+          '& .MuiStepLabel-label': { color: '#ffffff' },
+          '& .MuiStepIcon-root': { color: '#4caf50' },
+          '& .MuiStepConnector-line': { borderColor: '#4caf50' }
+        }}
+      >
         {steps.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>
@@ -191,80 +334,154 @@ const CheckInComponent = () => {
         ))}
       </Stepper>
 
-      {/* Step 0: Select Dates */}
       {activeStep === 0 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1a472a' }}>
-            Select Check-in/Check-out Dates
+          <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#ffffff' }}>
+            Select Your Stay Dates
           </Typography>
-          <TextField
-            label="Check-in Date"
-            type="date"
-            InputLabelProps={{ shrink: true }}
-            value={checkIn}
-            onChange={(e) => setCheckIn(e.target.value)}
-            sx={{ backgroundColor: '#f9f9f9', borderRadius: 1 }}
-          />
-          <TextField
-            label="Check-out Date"
-            type="date"
-            InputLabelProps={{ shrink: true }}
-            value={checkOut}
-            onChange={(e) => setCheckOut(e.target.value)}
-            sx={{ backgroundColor: '#f9f9f9', borderRadius: 1 }}
-          />
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#1a472a' }}>
-            <Typography>Are you Sri Lankan?</Typography>
-            <Checkbox
-              checked={isSriLankan}
-              onChange={(e) => setIsSriLankan(e.target.checked)}
-              sx={{ color: '#1a472a' }}
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DatePicker
+              label="Check-in Date"
+              value={checkIn}
+              onChange={(date: Date | null) => setCheckIn(date)}
+              minDate={new Date()}
+              slotProps={{
+                textField: {
+                  error: !!errors.checkIn,
+                  helperText: errors.checkIn,
+                  sx: {
+                    bgcolor: '#ffffff',
+                    borderRadius: 1,
+                    '& .MuiInputLabel-root': { color: '#1a472a' },
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#4caf50' },
+                      '&:hover fieldset': { borderColor: '#81c784' }
+                    }
+                  }
+                }
+              }}
             />
-          </Box>
+            <DatePicker
+              label="Check-out Date"
+              value={checkOut}
+              onChange={(date: Date | null) => setCheckOut(date)}
+              minDate={checkIn ? new Date(checkIn.getTime() + 24 * 60 * 60 * 1000) : new Date()}
+              slotProps={{
+                textField: {
+                  error: !!errors.checkOut,
+                  helperText: errors.checkOut,
+                  sx: {
+                    bgcolor: '#ffffff',
+                    borderRadius: 1,
+                    '& .MuiInputLabel-root': { color: '#1a472a' },
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#4caf50' },
+                      '&:hover fieldset': { borderColor: '#81c784' }
+                    }
+                  }
+                }
+              }}
+            />
+          </LocalizationProvider>
+          <FormControl>
+            <FormLabel sx={{ color: '#ffffff', mb: 1 }}>Nationality</FormLabel>
+            <RadioGroup
+              row
+              value={nationality}
+              onChange={(e) => setNationality(e.target.value as 'Local' | 'Foreigner')}
+            >
+              <FormControlLabel 
+                value="Local" 
+                control={<Radio sx={{ color: '#4caf50' }} />} 
+                label="Local" 
+                sx={{ color: '#ffffff' }}
+              />
+              <FormControlLabel 
+                value="Foreigner" 
+                control={<Radio sx={{ color: '#4caf50' }} />} 
+                label="Foreigner" 
+                sx={{ color: '#ffffff' }}
+              />
+            </RadioGroup>
+          </FormControl>
           <Button 
             variant="contained" 
             onClick={handleSearchRooms}
-            disabled={!checkIn || !checkOut || loading}
-            sx={{ backgroundColor: '#1a472a', color: 'white' }}
+            disabled={loading}
+            sx={{ 
+              bgcolor: '#4caf50', 
+              color: '#ffffff', 
+              '&:hover': { bgcolor: '#81c784' },
+              py: 1.5
+            }}
           >
-            {loading ? <CircularProgress size={24} /> : 'Search Rooms'}
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Search Rooms'}
           </Button>
         </Box>
       )}
 
-      {/* Step 1: Choose Room */}
       {activeStep === 1 && (
         <Box>
-          <Typography variant="h6" gutterBottom>Available Rooms</Typography>
+          <Typography variant="h5" gutterBottom sx={{ color: '#ffffff' }}>
+            Select Your Room
+          </Typography>
+          {errors.room && (
+            <Typography color="error" sx={{ mb: 2 }}>{errors.room}</Typography>
+          )}
           <Grid container spacing={3}>
             {rooms.map((room) => (
-              <Grid item xs={6} key={room.RoomNumber}>
-                <Paper 
+              <Grid item xs={12} sm={6} key={room.RoomNumber}>
+                <Card
                   onClick={() => setSelectedRoom(room)}
                   sx={{ 
-                    p: 2, 
-                    border: selectedRoom?.RoomNumber === room.RoomNumber ? '2px solid #1a472a' : '1px solid #ddd',
-                    cursor: 'pointer'
+                    bgcolor: '#ffffff',
+                    border: selectedRoom?.RoomNumber === room.RoomNumber ? '3px solid #4caf50' : '1px solid #ddd',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s',
+                    '&:hover': { transform: 'scale(1.02)' }
                   }}
                 >
-                  <Typography variant="subtitle1">Room {room.RoomNumber}</Typography>
-                  <Typography>Type: {room.Type}</Typography>
-                  <Typography>
-                    Price: {isSriLankan ? `LKR ${room.LocalPrice}` : `USD ${room.ForeignPrice}`}/night
-                  </Typography>
-                </Paper>
+                  <CardMedia
+                    component="img"
+                    height="200"
+                    image={roomVisuals[room.RoomNumber]?.image || 'https://via.placeholder.com/400'}
+                    alt={`Room ${room.RoomNumber}`}
+                  />
+                  <CardContent>
+                    <Typography variant="h6">Room {room.RoomNumber}</Typography>
+                    <Typography color="textSecondary">Type: {room.Type}</Typography>
+                    <Typography>
+                      Price: {nationality === 'Local' ? `LKR ${room.LocalPrice}` : `USD ${room.ForeignPrice}`}/night
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      {roomVisuals[room.RoomNumber]?.description || 'Comfortable room with modern amenities.'}
+                    </Typography>
+                  </CardContent>
+                </Card>
               </Grid>
             ))}
           </Grid>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-            <Button variant="outlined" onClick={() => setActiveStep(0)}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+            <Button 
+              variant="outlined" 
+              onClick={() => setActiveStep(0)}
+              sx={{ 
+                color: '#ffffff', 
+                borderColor: '#ffffff',
+                '&:hover': { borderColor: '#81c784', bgcolor: '#2e7d32' }
+              }}
+            >
               Back
             </Button>
             <Button
               variant="contained"
-              onClick={() => setActiveStep(2)}
+              onClick={handleNext}
               disabled={!selectedRoom}
-              sx={{ backgroundColor: '#1a472a', color: 'white' }}
+              sx={{ 
+                bgcolor: '#4caf50', 
+                color: '#ffffff', 
+                '&:hover': { bgcolor: '#81c784' }
+              }}
             >
               Next
             </Button>
@@ -272,79 +489,18 @@ const CheckInComponent = () => {
         </Box>
       )}
 
-      {/* Step 2: Guest Details */}
       {activeStep === 2 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Typography variant="h6">Guest Information</Typography>
-          <TextField
-            label="First Name"
-            value={customerData.FirstName}
-            onChange={(e) => setCustomerData({ ...customerData, FirstName: e.target.value })}
-          />
-          <TextField
-            label="Last Name"
-            value={customerData.LastName}
-            onChange={(e) => setCustomerData({ ...customerData, LastName: e.target.value })}
-          />
-          <TextField
-            label="Email"
-            type="email"
-            value={customerData.Email}
-            onChange={(e) => setCustomerData({ ...customerData, Email: e.target.value })}
-          />
-          <TextField
-            label="Phone"
-            value={customerData.Phone}
-            onChange={(e) => setCustomerData({ ...customerData, Phone: e.target.value })}
-          />
-          <Autocomplete
-            options={countries}
-            value={customerData.Country}
-            onChange={(event, newValue) => {
-              if (!isSriLankan) {
-                setCustomerData({ ...customerData, Country: newValue || '' });
-              }
-            }}
-            disabled={isSriLankan}
-            renderInput={(params) => <TextField {...params} label="Country" />}
-          />
-          <TextField
-            label="NIC"
-            value={customerData.NIC}
-            onChange={(e) => setCustomerData({ ...customerData, NIC: e.target.value })}
-            
-          />
-
-          <TextField
-            label="Passport Number"
-            value={customerData.PassportNumber}
-            onChange={(e) => setCustomerData({ ...customerData, PassportNumber: e.target.value })}
-          />
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-            <Button variant="outlined" onClick={() => setActiveStep(1)}>
-              Back
-            </Button>
-            <Button
-              variant="contained"
-              onClick={() => setActiveStep(3)}
-              sx={{ backgroundColor: '#1a472a', color: 'white' }}
-            >
-              Next
-            </Button>
-          </Box>
-        </Box>
-      )}
-
-      {/* Step 3: Reservation Details */}
-      {activeStep === 3 && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Typography variant="h6">Reservation Details</Typography>
+          <Typography variant="h5" sx={{ color: '#ffffff' }}>
+            Reservation Details
+          </Typography>
           <TextField
             select
             label="Package Type"
             value={reservationData.PackageType}
             onChange={(e) => setReservationData({ ...reservationData, PackageType: e.target.value })}
             SelectProps={{ native: true }}
+            sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
           >
             <option value="RoomOnly">Room Only</option>
             <option value="HalfBoard">Half Board</option>
@@ -358,7 +514,10 @@ const CheckInComponent = () => {
               ...reservationData,
               Adults: e.target.value ? parseInt(e.target.value) : 1
             })}
+            error={!!errors.adults}
+            helperText={errors.adults}
             inputProps={{ min: 1 }}
+            sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
           />
           <TextField
             label="Children"
@@ -368,7 +527,10 @@ const CheckInComponent = () => {
               ...reservationData,
               Children: e.target.value ? parseInt(e.target.value) : 0
             })}
+            error={!!errors.children}
+            helperText={errors.children}
             inputProps={{ min: 0 }}
+            sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
           />
           <TextField
             label="Special Requests"
@@ -376,6 +538,7 @@ const CheckInComponent = () => {
             rows={4}
             value={reservationData.SpecialRequests}
             onChange={(e) => setReservationData({ ...reservationData, SpecialRequests: e.target.value })}
+            sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
           />
           <TextField
             label="Arrival Time"
@@ -383,6 +546,7 @@ const CheckInComponent = () => {
             value={reservationData.ArrivalTime}
             onChange={(e) => setReservationData({ ...reservationData, ArrivalTime: e.target.value })}
             InputLabelProps={{ shrink: true }}
+            sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
           />
           <TextField
             label="Departure Time"
@@ -390,15 +554,28 @@ const CheckInComponent = () => {
             value={reservationData.DepartureTime}
             onChange={(e) => setReservationData({ ...reservationData, DepartureTime: e.target.value })}
             InputLabelProps={{ shrink: true }}
+            sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
           />
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-            <Button variant="outlined" onClick={() => setActiveStep(2)}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+            <Button 
+              variant="outlined" 
+              onClick={() => setActiveStep(1)}
+              sx={{ 
+                color: '#ffffff', 
+                borderColor: '#ffffff',
+                '&:hover': { borderColor: '#81c784', bgcolor: '#2e7d32' }
+              }}
+            >
               Back
             </Button>
             <Button
               variant="contained"
-              onClick={() => setActiveStep(4)}
-              sx={{ backgroundColor: '#1a472a', color: 'white' }}
+              onClick={handleNext}
+              sx={{ 
+                bgcolor: '#4caf50', 
+                color: '#ffffff', 
+                '&:hover': { bgcolor: '#81c784' }
+              }}
             >
               Next
             </Button>
@@ -406,11 +583,12 @@ const CheckInComponent = () => {
         </Box>
       )}
 
-      {/* Step 4: Review Invoice */}
-      {activeStep === 4 && invoice && (
+      {activeStep === 3 && invoice && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Typography variant="h6">Invoice Summary</Typography>
-          <TableContainer component={Paper}>
+          <Typography variant="h5" sx={{ color: '#ffffff' }}>
+            Invoice Summary
+          </Typography>
+          <TableContainer component={Paper} sx={{ bgcolor: '#ffffff' }}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -421,7 +599,7 @@ const CheckInComponent = () => {
               <TableBody>
                 <TableRow>
                   <TableCell>
-                    Base Room Price ({invoice.currency} {isSriLankan ? selectedRoom?.LocalPrice : selectedRoom?.ForeignPrice}/night x {invoice.numberOfNights} nights)
+                    Base Room Price ({invoice.currency} {nationality === 'Local' ? selectedRoom?.LocalPrice : selectedRoom?.ForeignPrice}/night x {invoice.numberOfNights} nights)
                   </TableCell>
                   <TableCell align="right">{invoice.currency} {invoice.baseRoomPrice.toFixed(2)}</TableCell>
                 </TableRow>
@@ -444,31 +622,217 @@ const CheckInComponent = () => {
               </TableBody>
             </Table>
           </TableContainer>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-            <Button variant="outlined" onClick={() => setActiveStep(3)}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+            <Button 
+              variant="outlined" 
+              onClick={() => setActiveStep(2)}
+              sx={{ 
+                color: '#ffffff', 
+                borderColor: '#ffffff',
+                '&:hover': { borderColor: '#81c784', bgcolor: '#2e7d32' }
+              }}
+            >
               Back
             </Button>
             <Button
               variant="contained"
-              onClick={handleSubmitReservation}
-              disabled={loading}
-              sx={{ backgroundColor: '#1a472a', color: 'white' }}
+              onClick={handleNext}
+              sx={{ 
+                bgcolor: '#4caf50', 
+                color: '#ffffff', 
+                '&:hover': { bgcolor: '#81c784' }
+              }}
             >
-              {loading ? <CircularProgress size={24} /> : 'Confirm Reservation'}
+              Next
             </Button>
           </Box>
         </Box>
       )}
 
-      {/* Step 5: Success */}
-      {activeStep === 5 && (
-        <Box sx={{ textAlign: 'center', p: 4 }}>
-          <Typography variant="h5" gutterBottom sx={{ color: '#1a472a' }}>
-            Reservation Successful!
+      {activeStep === 4 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Typography variant="h5" sx={{ color: '#ffffff' }}>
+            Guest Information
           </Typography>
-          <Typography>Room {selectedRoom?.RoomNumber} has been booked.</Typography>
+          <TextField
+            label="First Name"
+            value={customerData.FirstName}
+            onChange={(e) => setCustomerData({ ...customerData, FirstName: e.target.value })}
+            error={!!errors.FirstName}
+            helperText={errors.FirstName}
+            sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
+          />
+          <TextField
+            label="Last Name"
+            value={customerData.LastName}
+            onChange={(e) => setCustomerData({ ...customerData, LastName: e.target.value })}
+            error={!!errors.LastName}
+            helperText={errors.LastName}
+            sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
+          />
+          <TextField
+            label="Email"
+            type="email"
+            value={customerData.Email}
+            onChange={(e) => setCustomerData({ ...customerData, Email: e.target.value })}
+            error={!!errors.Email}
+            helperText={errors.Email}
+            sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
+          />
+          <TextField
+            label="Phone"
+            value={customerData.Phone}
+            onChange={(e) => setCustomerData({ ...customerData, Phone: e.target.value })}
+            error={!!errors.Phone}
+            helperText={errors.Phone}
+            sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
+          />
+          <Autocomplete
+            options={countries}
+            value={customerData.Country}
+            onChange={(event, newValue) => {
+              setCustomerData({ ...customerData, Country: newValue || '' });
+            }}
+            disabled={nationality === 'Local'}
+            renderInput={(params) => (
+              <TextField 
+                {...params} 
+                label="Country" 
+                error={!!errors.Country}
+                helperText={errors.Country}
+                sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
+              />
+            )}
+          />
+          {nationality === 'Local' ? (
+            <TextField
+              label="NIC"
+              value={customerData.Nic}
+              onChange={(e) => setCustomerData({ ...customerData, Nic: e.target.value })}
+              error={!!errors.Nic}
+              helperText={errors.Nic}
+              sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
+            />
+          ) : (
+            <TextField
+              label="Passport Number"
+              value={customerData.Passport}
+              onChange={(e) => setCustomerData({ ...customerData, Passport: e.target.value })}
+              error={!!errors.Passport}
+              helperText={errors.Passport}
+              sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
+            />
+          )}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+            <Button 
+              variant="outlined" 
+              onClick={() => setActiveStep(3)}
+              sx={{ 
+                color: '#ffffff', 
+                borderColor: '#ffffff',
+                '&:hover': { borderColor: '#81c784', bgcolor: '#2e7d32' }
+              }}
+            >
+              Back
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              sx={{ 
+                bgcolor: '#4caf50', 
+                color: '#ffffff', 
+                '&:hover': { bgcolor: '#81c784' }
+              }}
+            >
+              Next
+            </Button>
+          </Box>
         </Box>
       )}
+
+      {activeStep === 5 && (
+        <Box sx={{ textAlign: 'center', p: 4 }}>
+          <Typography variant="h5" gutterBottom sx={{ color: '#ffffff' }}>
+            Complete Your Reservation
+          </Typography>
+          <Typography sx={{ color: '#ffffff', mb: 3 }}>
+            Please review your details and click Submit to finalize your booking.
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={handleSubmitReservation}
+            disabled={loading}
+            sx={{ 
+              bgcolor: '#4caf50', 
+              color: '#ffffff', 
+              '&:hover': { bgcolor: '#81c784' },
+              py: 1.5,
+              px: 4
+            }}
+          >
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Submit'}
+          </Button>
+        </Box>
+      )}
+
+      {activeStep === 6 && (
+        <Box sx={{ textAlign: 'center', p: 4 }}>
+          <Typography variant="h5" gutterBottom sx={{ color: '#ffffff' }}>
+            Reservation Confirmed
+          </Typography>
+          <Typography sx={{ color: '#ffffff', mb: 3 }}>
+            Thank you for your booking! A confirmation email has been sent to {customerData.Email}.
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setActiveStep(0);
+              setCheckIn(null);
+              setCheckOut(null);
+              setRooms([]);
+              setSelectedRoom(null);
+              setCustomerData({
+                FirstName: '',
+                LastName: '',
+                Email: '',
+                Phone: '',
+                Country: 'Sri Lanka',
+                Nic: '',
+                Passport: ''
+              });
+              setReservationData({
+                PackageType: 'RoomOnly',
+                Adults: 1,
+                Children: 0,
+                SpecialRequests: '',
+                ArrivalTime: '14:00',
+                DepartureTime: '12:00'
+              });
+              setErrors({});
+            }}
+            sx={{ 
+              bgcolor: '#4caf50', 
+              color: '#ffffff', 
+              '&:hover': { bgcolor: '#81c784' },
+              py: 1.5,
+              px: 4
+            }}
+          >
+            Make Another Reservation
+          </Button>
+        </Box>
+      )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

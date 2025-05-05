@@ -147,7 +147,7 @@ export default function Home() {
                   </div>
                   <div className="mt-6">
                     <Button className="w-full" asChild>
-                      <Link href="/booking">Book Now</Link>
+                      <Link href="/OnlineBooking">Book Now</Link>
                     </Button>
                   </div>
                 </div>
