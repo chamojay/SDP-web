@@ -38,6 +38,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { reservationService } from '@/app/services/reservationService';
 import { packageTypeService } from '@/app/services/packageTypeService';
+import { currencyService } from '../services/currencyService';
 import { Room, PackageType } from '@/types/reservationtypes';
 import { format } from 'date-fns';
 
@@ -61,8 +62,7 @@ const CheckInComponent = () => {
     Passport: ''
   });
   const [reservationData, setReservationData] = useState({
-    PackageID: '', // Changed from PackageType
-    Adults: 1,
+    PackageID: '', 
     Children: 0,
     SpecialRequests: '',
     ArrivalTime: '14:00',
@@ -80,6 +80,7 @@ const CheckInComponent = () => {
     message: '',
     severity: 'success'
   });
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
 
   const roomVisuals: Record<string, { image: string; description: string }> = {
     '101': { 
@@ -270,6 +271,26 @@ const CheckInComponent = () => {
     setLoading(false);
   };
 
+  useEffect(() => {
+    const fetchExchangeRate = async () => {
+      if (nationality === 'Foreigner') {
+        try {
+          const rate = await currencyService.getUSDToLKRRate();
+          setExchangeRate(rate);
+        } catch (error) {
+          console.error('Error fetching exchange rate:', error);
+          setSnackbar({
+            open: true,
+            message: 'Failed to fetch exchange rate. Please try again.',
+            severity: 'error'
+          });
+        }
+      }
+    };
+
+    fetchExchangeRate();
+  }, [nationality]);
+
   const calculateTotalAmount = () => {
     if (!selectedRoom) return null;
 
@@ -285,12 +306,12 @@ const CheckInComponent = () => {
 
     const serviceCharge = adjustedRoomPrice * 0.10;
     const vat = adjustedRoomPrice * 0.18;
-    let totalPrice = adjustedRoomPrice + serviceCharge + vat;
+    const totalPrice = adjustedRoomPrice + serviceCharge + vat;
 
-    let totalPriceLKR = totalPrice;
-    if (!nationality === 'Local' && exchangeRate) {
-      totalPriceLKR = totalPrice * exchangeRate;
-    }
+    // Convert to LKR if foreigner
+    const totalPriceLKR = nationality === 'Foreigner' && exchangeRate 
+      ? totalPrice * exchangeRate 
+      : totalPrice;
 
     return {
       baseRoomPrice,
@@ -302,7 +323,8 @@ const CheckInComponent = () => {
       numberOfNights,
       currency: nationality === 'Local' ? 'LKR' : 'USD',
       currencyLKR: 'LKR',
-      packageName: selectedPackage?.Name || 'Room Only'
+      packageName: selectedPackage?.Name || 'Room Only',
+      exchangeRate: exchangeRate || 1
     };
   };
 
@@ -317,30 +339,32 @@ const CheckInComponent = () => {
     }
     setLoading(true);
     try {
-      if (!selectedRoom) {
-        throw new Error('No room selected');
-      }
-      if (!checkIn || !checkOut) {
-        throw new Error('Check-in or check-out date is missing');
+      if (!selectedRoom || !checkIn || !checkOut) {
+        throw new Error('Missing required reservation data');
       }
       const invoice = calculateTotalAmount();
       if (!invoice) {
         throw new Error('Unable to calculate total amount');
       }
 
+      // Always send LKR amount to database
       const reservationPayload = {
         roomNumber: selectedRoom.RoomNumber,
         customer: customerData,
         details: {
           CheckInDate: format(checkIn, 'yyyy-MM-dd'),
           CheckOutDate: format(checkOut, 'yyyy-MM-dd'),
-          TotalAmount: invoice.totalPrice,
+          TotalAmount: invoice.totalPriceLKR, // Using LKR amount
           PackageType: reservationData.PackageID,
           Adults: reservationData.Adults,
           Children: reservationData.Children,
           SpecialRequests: reservationData.SpecialRequests,
           ArrivalTime: reservationData.ArrivalTime,
-          DepartureTime: reservationData.DepartureTime
+          DepartureTime: reservationData.DepartureTime,
+          Currency: 'LKR', // Always store in LKR
+          OriginalCurrency: nationality === 'Local' ? 'LKR' : 'USD',
+          OriginalAmount: invoice.totalPrice, // Store original amount before conversion
+          ExchangeRate: invoice.exchangeRate // Store exchange rate used
         }
       };
 
