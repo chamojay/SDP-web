@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Leaf, Wifi, Coffee, Tv, Bath, Car, Phone, MapPin, Mail, Send } from "lucide-react";
+import { ArrowRight, Leaf, Wifi, Coffee, Car, Phone, MapPin, Mail } from "lucide-react";
 import Link from "next/link";
 import NewsletterForm from "@/components/NewsletterForm";
+import DynamicContent from "./components/DynamicContent";
 
 export default function Home() {
   return (
@@ -78,84 +79,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Room Types Preview */}
-      <section className="py-20 px-4 bg-background" id="rooms">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">Our Accommodations</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              {
-                type: "Deluxe Room",
-                price: "$200",
-                size: "40m²",
-                occupancy: "2 Adults, 1 Child",
-                image: "https://images.unsplash.com/photo-1590490359683-658d3d23f972?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-                amenities: ["King Bed", "Mountain View", "Private Balcony", "Rain Shower"],
-              },
-              {
-                type: "Executive Suite",
-                price: "$350",
-                size: "65m²",
-                occupancy: "2 Adults, 2 Children",
-                image: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-                amenities: ["King Bed", "Living Area", "Jacuzzi", "Kitchenette"],
-              },
-              {
-                type: "Standard Room",
-                price: "$150",
-                size: "30m²",
-                occupancy: "2 Adults",
-                image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-                amenities: ["Queen Bed", "Garden View", "Work Desk", "Shower"],
-              },
-              {
-                type: "Luxury Cabana",
-                price: "$280",
-                size: "45m²",
-                occupancy: "2 Adults",
-                image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-                amenities: ["King Bed", "Private Pool", "Terrace", "Mini Bar"],
-              },
-            ].map((room) => (
-              <div
-                key={room.type}
-                className="group bg-card rounded-lg shadow-lg overflow-hidden transition-transform hover:scale-105"
-              >
-                <div
-                  className="h-48 bg-cover bg-center"
-                  style={{ backgroundImage: `url(${room.image})` }}
-                />
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-xl font-semibold">{room.type}</h3>
-                    
-                  </div>
-                  <div className="space-y-2 mb-4">
-                    <p className="text-sm text-muted-foreground">Size: {room.size}</p>
-                    <p className="text-sm text-muted-foreground">Max Occupancy: {room.occupancy}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Room Amenities:</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {room.amenities.map((amenity) => (
-                        <div key={amenity} className="flex items-center text-sm text-muted-foreground">
-                          <div className="h-1 w-1 rounded-full bg-primary mr-2" />
-                          {amenity}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="mt-6">
-                    <Button className="w-full" asChild>
-                      <Link href="/OnlineBooking">Book Now</Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Dynamic Content (Rooms and Activities) */}
+      <DynamicContent />
 
       {/* Packages Section */}
       <section className="py-20 px-4 bg-muted" id="packages">
@@ -219,61 +144,6 @@ export default function Home() {
                   </ul>
                   <Button className="w-full" variant={pkg.highlighted ? "default" : "outline"}>
                     Select Package
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Activities Preview */}
-      <section className="py-20 px-4 bg-muted" id="activities">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">Adventure Awaits</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                name: "Water Rafting",
-                price: "$45",
-                duration: "3 hours",
-                difficulty: "Moderate",
-                image: "https://images.unsplash.com/photo-1530866495561-12c13a477806?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-              },
-              {
-                name: "Jungle Shooting",
-                price: "$35",
-                duration: "2 hours",
-                difficulty: "Easy",
-                image: "https://images.unsplash.com/photo-1552728089-57bdde30beb3?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-              },
-              {
-                name: "Hill Climbing",
-                price: "$40",
-                duration: "4 hours",
-                difficulty: "Challenging",
-                image: "https://images.unsplash.com/photo-1551632811-561732d1e306?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-              },
-            ].map((activity) => (
-              <div
-                key={activity.name}
-                className="group bg-card rounded-lg shadow-lg overflow-hidden transition-transform hover:scale-105"
-              >
-                <div
-                  className="h-64 bg-cover bg-center"
-                  style={{ backgroundImage: `url(${activity.image})` }}
-                />
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-xl font-semibold">{activity.name}</h3>
-                    <span className="text-primary font-bold">{activity.price}</span>
-                  </div>
-                  <div className="space-y-2 mb-6">
-                    <p className="text-sm text-muted-foreground">Duration: {activity.duration}</p>
-                    <p className="text-sm text-muted-foreground">Difficulty: {activity.difficulty}</p>
-                  </div>
-                  <Button className="w-full" asChild>
-                    <Link href="/activities">Book Activity</Link>
                   </Button>
                 </div>
               </div>

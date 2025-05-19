@@ -127,33 +127,100 @@ const CheckInComponent = () => {
     'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
   ];
 
+  const getMinCheckInDate = (): string => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today.toISOString().split('T')[0];
+  };
+
+  const getMinCheckOutDate = (checkInDate: string): string => {
+    if (!checkInDate) return '';
+    const nextDay = new Date(checkInDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    return nextDay.toISOString().split('T')[0];
+  };
+
   const validateStep = (): boolean => {
     const newErrors: Record<string, string> = {};
     
     if (activeStep === 0) {
-      if (!checkIn) newErrors.checkIn = 'Check-in date is required';
-      if (!checkOut) newErrors.checkOut = 'Check-out date is required';
-      if (checkIn && checkOut && checkIn >= checkOut) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const checkInDate = checkIn ? new Date(checkIn) : null;
+      const checkOutDate = checkOut ? new Date(checkOut) : null;
+
+      if (!checkIn) {
+        newErrors.checkIn = 'Check-in date is required';
+      } else if (checkInDate && checkInDate < today) {
+        newErrors.checkIn = 'Check-in date cannot be in the past';
+      }
+
+      if (!checkOut) {
+        newErrors.checkOut = 'Check-out date is required';
+      } else if (checkInDate && checkOutDate && checkOutDate <= checkInDate) {
         newErrors.checkOut = 'Check-out date must be after check-in date';
       }
-    } else if (activeStep === 1) {
-      if (!selectedRoom) newErrors.room = 'Please select a room';
-    } else if (activeStep === 2) {
-      if (reservationData.Adults < 1) newErrors.adults = 'At least one adult is required';
-      if (reservationData.Children < 0) newErrors.children = 'Number of children cannot be negative';
     } else if (activeStep === 4) {
-      if (!customerData.FirstName) newErrors.FirstName = 'First name is required';
-      if (!customerData.LastName) newErrors.LastName = 'Last name is required';
-      if (!customerData.Email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerData.Email)) {
-        newErrors.Email = 'Valid email is required';
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const phoneRegex = /^\+?[\d\s-]{10,10}$/;
+      const nicRegex = /^(?:\d{9}[vV]|\d{12})$/;
+      const passportRegex = /^[A-Z0-9]{6,9}$/;
+
+      if (!customerData.FirstName.trim()) {
+        newErrors.FirstName = 'First name is required';
+      } else if (customerData.FirstName.length < 2) {
+        newErrors.FirstName = 'First name must be at least 2 characters';
       }
-      if (!customerData.Phone) newErrors.Phone = 'Phone number is required';
-      if (!customerData.Country) newErrors.Country = 'Country is required';
-      if (nationality === 'Local' && !customerData.Nic) {
-        newErrors.Nic = 'NIC is required for local guests';
+
+      if (!customerData.LastName.trim()) {
+        newErrors.LastName = 'Last name is required';
+      } else if (customerData.LastName.length < 2) {
+        newErrors.LastName = 'Last name must be at least 2 characters';
       }
-      if (nationality === 'Foreigner' && !customerData.Passport) {
-        newErrors.Passport = 'Passport number is required for foreign guests';
+
+      if (!customerData.Email.trim()) {
+        newErrors.Email = 'Email is required';
+      } else if (!emailRegex.test(customerData.Email)) {
+        newErrors.Email = 'Invalid email format';
+      }
+
+      if (!customerData.Phone.trim()) {
+        newErrors.Phone = 'Phone number is required';
+      } else if (!phoneRegex.test(customerData.Phone)) {
+        newErrors.Phone = 'Phone number must be exactly 10 digits';
+      }
+
+      if (nationality === 'Local') {
+        if (!customerData.Nic.trim()) {
+          newErrors.Nic = 'NIC is required';
+        } else if (!nicRegex.test(customerData.Nic)) {
+          newErrors.Nic = 'Invalid NIC format (9 digits + V or 12 digits)';
+        }
+      } else {
+        if (!customerData.Passport.trim()) {
+          newErrors.Passport = 'Passport number is required';
+        } else if (!passportRegex.test(customerData.Passport)) {
+          newErrors.Passport = 'Invalid passport format (6-9 alphanumeric characters)';
+        }
+        if (!customerData.Country) {
+          newErrors.Country = 'Country is required';
+        }
+      }
+    } else if (activeStep === 2) {
+      if (reservationData.Adults < 1) {
+        newErrors.adults = 'At least one adult is required';
+      }
+      if (reservationData.Children < 0) {
+        newErrors.children = 'Number of children cannot be negative';
+      }
+      if (selectedRoom && (reservationData.Adults + reservationData.Children) > selectedRoom.MaxPeople) {
+        newErrors.adults = `Total guests cannot exceed ${selectedRoom.MaxPeople}`;
+      }
+      if (!reservationData.ArrivalTime) {
+        newErrors.ArrivalTime = 'Arrival time is required';
+      }
+      if (!reservationData.DepartureTime) {
+        newErrors.DepartureTime = 'Departure time is required';
       }
     }
 
@@ -345,18 +412,14 @@ const CheckInComponent = () => {
               value={checkIn}
               onChange={(date: Date | null) => setCheckIn(date)}
               minDate={new Date()}
+              maxDate={new Date('2025-12-31')}
               slotProps={{
                 textField: {
                   error: !!errors.checkIn,
                   helperText: errors.checkIn,
                   sx: {
                     bgcolor: '#ffffff',
-                    borderRadius: 1,
-                    '& .MuiInputLabel-root': { color: '#1a472a' },
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': { borderColor: '#4caf50' },
-                      '&:hover fieldset': { borderColor: '#81c784' }
-                    }
+                    borderRadius: 1
                   }
                 }
               }}
@@ -366,18 +429,14 @@ const CheckInComponent = () => {
               value={checkOut}
               onChange={(date: Date | null) => setCheckOut(date)}
               minDate={checkIn ? new Date(checkIn.getTime() + 24 * 60 * 60 * 1000) : new Date()}
+              maxDate={new Date('2025-12-31')}
               slotProps={{
                 textField: {
                   error: !!errors.checkOut,
                   helperText: errors.checkOut,
                   sx: {
                     bgcolor: '#ffffff',
-                    borderRadius: 1,
-                    '& .MuiInputLabel-root': { color: '#1a472a' },
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': { borderColor: '#4caf50' },
-                      '&:hover fieldset': { borderColor: '#81c784' }
-                    }
+                    borderRadius: 1
                   }
                 }
               }}
