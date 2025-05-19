@@ -1,49 +1,59 @@
+export interface PackageType {
+  PackageID: number;
+  Name: string;
+  PriceMultiplier: number;
+  Description?: string;
+  ImagePath?: string;
+}
 export interface Room {
-  RoomID: string;
   RoomNumber: string;
   Type: string;
+  TypeName?: string;
+  Description?: string;
+  MaxPeople: number;
   LocalPrice: number;
   ForeignPrice: number;
-  MaxPeople: number;
-  Description: string;
+  Image?: string;
 }
-  
-  export interface Reservation {
-    ReservationID: string;
-    CheckOutDate: string;
-    FirstName: string;
-    LastName: string;
-    RoomNumber: string;
-  }
 
-  export interface Reservation {
-    ReservationID: string;
-    CustomerID: number;
-    CheckInDate: string;
-    CheckOutDate: string;
-    Room_Status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed';
-    PackageType: 'RoomOnly' | 'HalfBoard' | 'FullBoard';
-    Adults: number;
-    Children: number;
-    SpecialRequests?: string;
-    ArrivalTime?: string;
-    DepartureTime?: string;
-    RoomID: number;
-    TotalAmount?: number;
-  }
-  
-  export interface Customer {
-    CustomerID: number;
-    Title: 'Mr' | 'Mrs' | 'Ms';
-    FirstName: string;
-    LastName: string;
-    Email: string;
-    Phone: string;
-    Country: string;
-    Nic_Passport: string;
-  }
-  
-  export interface ReservationWithCustomer extends Reservation {
-    customer?: Customer;
-  }
-  
+export interface Reservation {
+  ReservationID: number;
+  CheckInDate: string;
+  CheckOutDate: string;
+  Room_Status: string;
+  PackageID: number;
+  PackageName: string;
+  PriceMultiplier: number;
+  Adults: number;
+  Children: number;
+  SpecialRequests: string;
+  ArrivalTime: string;
+  DepartureTime: string;
+  RoomNumber: string;
+  RoomType: string;
+  Status: string;
+  CustomerID: number;
+  Title: string;
+  FirstName: string;
+  LastName: string;
+  Email: string;
+  Phone: string;
+  Country: string;
+  NIC: string;
+  PassportNumber: string;
+}
+
+export interface Customer {
+  CustomerID: number;
+  Title: 'Mr' | 'Mrs' | 'Ms';
+  FirstName: string;
+  LastName: string;
+  Email: string;
+  Phone: string;
+  Country: string;
+  Nic_Passport: string;
+}
+
+export interface ReservationWithCustomer extends Reservation {
+  customer?: Customer;
+}

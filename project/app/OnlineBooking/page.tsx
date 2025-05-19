@@ -27,13 +27,18 @@ import {
   CardMedia,
   CardContent,
   Snackbar,
-  Alert
+  Alert,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormHelperText
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { reservationService } from '@/app/services/reservationService';
-import { Room } from '@/types/reservationtypes';
+import { packageTypeService } from '@/app/services/packageTypeService';
+import { Room, PackageType } from '@/types/reservationtypes';
 import { format } from 'date-fns';
 
 const steps = ['Select Dates', 'Choose Room', 'Reservation Details', 'Review Invoice', 'Guest Details', 'Payment'];
@@ -56,7 +61,7 @@ const CheckInComponent = () => {
     Passport: ''
   });
   const [reservationData, setReservationData] = useState({
-    PackageType: 'RoomOnly',
+    PackageID: '', // Changed from PackageType
     Adults: 1,
     Children: 0,
     SpecialRequests: '',
@@ -64,7 +69,13 @@ const CheckInComponent = () => {
     DepartureTime: '12:00'
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+  const [packageTypes, setPackageTypes] = useState<PackageType[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ 
+    open: boolean; 
+    message: string; 
+    severity: 'success' | 'error' 
+  }>({
     open: false,
     message: '',
     severity: 'success'
@@ -260,7 +271,7 @@ const CheckInComponent = () => {
   };
 
   const calculateTotalAmount = () => {
-    if (!selectedRoom || !checkIn || !checkOut) return null;
+    if (!selectedRoom) return null;
 
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
@@ -268,17 +279,18 @@ const CheckInComponent = () => {
     const pricePerNight = nationality === 'Local' ? selectedRoom.LocalPrice : selectedRoom.ForeignPrice;
     const baseRoomPrice = pricePerNight * numberOfNights;
 
-    let packageMultiplier = 1;
-    if (reservationData.PackageType === 'HalfBoard') {
-      packageMultiplier = 1.3;
-    } else if (reservationData.PackageType === 'FullBoard') {
-      packageMultiplier = 1.5;
-    }
+    const selectedPackage = packageTypes.find(pkg => pkg.PackageID === reservationData.PackageID);
+    const packageMultiplier = selectedPackage?.PriceMultiplier || 1;
     const adjustedRoomPrice = baseRoomPrice * packageMultiplier;
 
     const serviceCharge = adjustedRoomPrice * 0.10;
     const vat = adjustedRoomPrice * 0.18;
-    const totalPrice = adjustedRoomPrice + serviceCharge + vat;
+    let totalPrice = adjustedRoomPrice + serviceCharge + vat;
+
+    let totalPriceLKR = totalPrice;
+    if (!nationality === 'Local' && exchangeRate) {
+      totalPriceLKR = totalPrice * exchangeRate;
+    }
 
     return {
       baseRoomPrice,
@@ -286,8 +298,11 @@ const CheckInComponent = () => {
       serviceCharge,
       vat,
       totalPrice,
+      totalPriceLKR,
       numberOfNights,
-      currency: nationality === 'Local' ? 'LKR' : 'USD'
+      currency: nationality === 'Local' ? 'LKR' : 'USD',
+      currencyLKR: 'LKR',
+      packageName: selectedPackage?.Name || 'Room Only'
     };
   };
 
@@ -320,7 +335,7 @@ const CheckInComponent = () => {
           CheckInDate: format(checkIn, 'yyyy-MM-dd'),
           CheckOutDate: format(checkOut, 'yyyy-MM-dd'),
           TotalAmount: invoice.totalPrice,
-          PackageType: reservationData.PackageType,
+          PackageType: reservationData.PackageID,
           Adults: reservationData.Adults,
           Children: reservationData.Children,
           SpecialRequests: reservationData.SpecialRequests,
@@ -372,6 +387,30 @@ const CheckInComponent = () => {
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
+
+  useEffect(() => {
+    const fetchPackageTypes = async () => {
+      try {
+        setPackagesLoading(true);
+        const types = await packageTypeService.getAllPackageTypes();
+        console.log('Fetched package types:', types);
+        setPackageTypes(types);
+        // Set default package ID
+        if (types && types.length > 0) {
+          setReservationData(prev => ({
+            ...prev,
+            PackageID: types[0].PackageID
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching package types:', error);
+      } finally {
+        setPackagesLoading(false);
+      }
+    };
+
+    fetchPackageTypes();
+  }, []);
 
   const invoice = calculateTotalAmount();
 
@@ -503,17 +542,24 @@ const CheckInComponent = () => {
                   <CardMedia
                     component="img"
                     height="200"
-                    image={roomVisuals[room.RoomNumber]?.image || 'https://via.placeholder.com/400'}
+                    image={room.Image || roomVisuals[room.RoomNumber]?.image || '/default-room.jpg'}
                     alt={`Room ${room.RoomNumber}`}
                   />
                   <CardContent>
                     <Typography variant="h6">Room {room.RoomNumber}</Typography>
-                    <Typography color="textSecondary">Type: {room.Type}</Typography>
-                    <Typography>
-                      Price: {nationality === 'Local' ? `LKR ${room.LocalPrice}` : `USD ${room.ForeignPrice}`}/night
+                    <Typography variant="subtitle1" color="textSecondary" gutterBottom>
+                      {room.TypeName || room.Type}
                     </Typography>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      {roomVisuals[room.RoomNumber]?.description || 'Comfortable room with modern amenities.'}
+                    <Typography variant="body2" gutterBottom>
+                      Max Occupancy: {room.MaxPeople} Persons
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      {room.Description || roomVisuals[room.RoomNumber]?.description || 'Comfortable room with modern amenities.'}
+                    </Typography>
+                    <Typography variant="h6" color="primary">
+                      Price: {nationality === 'Local' ? 
+                        `LKR ${room.LocalPrice?.toLocaleString()}` : 
+                        `USD ${room.ForeignPrice?.toLocaleString()}`}/night
                     </Typography>
                   </CardContent>
                 </Card>
@@ -553,18 +599,35 @@ const CheckInComponent = () => {
           <Typography variant="h5" sx={{ color: '#ffffff' }}>
             Reservation Details
           </Typography>
-          <TextField
-            select
-            label="Package Type"
-            value={reservationData.PackageType}
-            onChange={(e) => setReservationData({ ...reservationData, PackageType: e.target.value })}
-            SelectProps={{ native: true }}
-            sx={{ bgcolor: '#ffffff', borderRadius: 1 }}
-          >
-            <option value="RoomOnly">Room Only</option>
-            <option value="HalfBoard">Half Board</option>
-            <option value="FullBoard">Full Board</option>
-          </TextField>
+          <FormControl fullWidth error={!!errors.PackageID}>
+            <InputLabel>Package Type</InputLabel>
+            <Select
+              value={reservationData.PackageID}
+              onChange={(e) => {
+                console.log('Selected package:', e.target.value);
+                setReservationData({
+                  ...reservationData,
+                  PackageID: e.target.value
+                });
+              }}
+              label="Package Type"
+            >
+              {packagesLoading ? (
+                <MenuItem disabled>Loading packages...</MenuItem>
+              ) : packageTypes.length > 0 ? (
+                packageTypes.map((pkg) => (
+                  <MenuItem key={pkg.PackageID} value={pkg.PackageID}>
+                    {pkg.Name} ({((pkg.PriceMultiplier * 100) - 100).toFixed(0)}% extra)
+                  </MenuItem>
+                ))
+              ) : (
+                <MenuItem disabled>No package types available</MenuItem>
+              )}
+            </Select>
+            {errors.PackageID && (
+              <FormHelperText>{errors.PackageID}</FormHelperText>
+            )}
+          </FormControl>
           <TextField
             label="Adults"
             type="number"
@@ -663,7 +726,7 @@ const CheckInComponent = () => {
                   <TableCell align="right">{invoice.currency} {invoice.baseRoomPrice.toFixed(2)}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>Package Adjustment ({reservationData.PackageType})</TableCell>
+                  <TableCell>Package Adjustment ({reservationData.PackageID})</TableCell>
                   <TableCell align="right">{invoice.currency} {(invoice.adjustedRoomPrice - invoice.baseRoomPrice).toFixed(2)}</TableCell>
                 </TableRow>
                 <TableRow>
@@ -860,7 +923,7 @@ const CheckInComponent = () => {
                 Passport: ''
               });
               setReservationData({
-                PackageType: 'RoomOnly',
+                PackageID: '', // Changed from PackageType
                 Adults: 1,
                 Children: 0,
                 SpecialRequests: '',
@@ -885,10 +948,14 @@ const CheckInComponent = () => {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity} 
+          sx={{ width: '100%' }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
