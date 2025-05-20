@@ -62,7 +62,8 @@ const CheckInComponent = () => {
     Passport: ''
   });
   const [reservationData, setReservationData] = useState({
-    PackageID: '', 
+    PackageID: '',
+    Adults: 1, // Initialize with default value
     Children: 0,
     SpecialRequests: '',
     ArrivalTime: '14:00',
@@ -347,15 +348,14 @@ const CheckInComponent = () => {
         throw new Error('Unable to calculate total amount');
       }
 
-      // Always send LKR amount to database
       const reservationPayload = {
         roomNumber: selectedRoom.RoomNumber,
         customer: customerData,
-        details: {
+        reservationData: {
           CheckInDate: format(checkIn, 'yyyy-MM-dd'),
           CheckOutDate: format(checkOut, 'yyyy-MM-dd'),
           TotalAmount: invoice.totalPriceLKR, // Using LKR amount
-          PackageType: reservationData.PackageID,
+          PackageID: reservationData.PackageID,
           Adults: reservationData.Adults,
           Children: reservationData.Children,
           SpecialRequests: reservationData.SpecialRequests,
@@ -370,10 +370,10 @@ const CheckInComponent = () => {
 
       console.log('Submitting reservation:', reservationPayload);
 
-      const response = await reservationService.createReservation(
+      const response = await reservationService.createWebReservation(
         reservationPayload.roomNumber,
         reservationPayload.customer,
-        reservationPayload.details
+        reservationPayload.reservationData
       );
 
       console.log('Reservation response:', response);
@@ -947,7 +947,7 @@ const CheckInComponent = () => {
                 Passport: ''
               });
               setReservationData({
-                PackageID: '', // Changed from PackageType
+                PackageID: '',
                 Adults: 1,
                 Children: 0,
                 SpecialRequests: '',

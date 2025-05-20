@@ -8,8 +8,19 @@ export const reservationService = {
     return response.data;
   },
 
+  // Used by reception component
   createReservation: async (roomNumber: string, customerData: any, reservationData: any) => {
     const response = await axios.post(API_URL, { roomNumber, customerData, reservationData });
+    return response.data;
+  },
+
+  // New method for web bookings
+  createWebReservation: async (roomNumber: string, customerData: any, reservationData: any) => {
+    const response = await axios.post(`${API_URL}/web`, { 
+      roomNumber, 
+      customerData, 
+      reservationData 
+    });
     return response.data;
   },
 
@@ -23,10 +34,8 @@ export const reservationService = {
     return response.data;
   },
 
-  // ✅ Fetch all rooms with current status
   getAllRoomsStatus: async () => {
     const response = await axios.get(`${API_URL}/room-status`);
     return response.data;
   }
 };
-
