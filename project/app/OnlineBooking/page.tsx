@@ -41,6 +41,7 @@ import { packageTypeService } from '@/app/services/packageTypeService';
 import { currencyService } from '../services/currencyService';
 import { Room, PackageType } from '@/types/reservationtypes';
 import { format } from 'date-fns';
+import PaymentModal from '@/components/PaymentModal';
 
 const steps = ['Select Dates', 'Choose Room', 'Reservation Details', 'Review Invoice', 'Guest Details', 'Payment'];
 
@@ -82,6 +83,7 @@ const CheckInComponent = () => {
     severity: 'success'
   });
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   const roomVisuals: Record<string, { image: string; description: string }> = {
     '101': { 
@@ -902,11 +904,11 @@ const CheckInComponent = () => {
             Complete Your Reservation
           </Typography>
           <Typography sx={{ color: '#ffffff', mb: 3 }}>
-            Please review your details and click Submit to finalize your booking.
+            Please review your details and proceed to payment to finalize your booking.
           </Typography>
           <Button
             variant="contained"
-            onClick={handleSubmitReservation}
+            onClick={() => setIsPaymentModalOpen(true)}
             disabled={loading}
             sx={{ 
               bgcolor: '#4caf50', 
@@ -916,8 +918,46 @@ const CheckInComponent = () => {
               px: 4
             }}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : 'Submit'}
+            Proceed to Payment
           </Button>
+
+          <PaymentModal
+            open={isPaymentModalOpen}
+            onClose={() => setIsPaymentModalOpen(false)}
+            onConfirm={async (paymentDetails) => {
+              try {
+                setLoading(true);
+                // Process payment details
+                console.log('Payment details:', paymentDetails);
+                
+                // Submit reservation
+                await handleSubmitReservation();
+                
+                // Close payment modal
+                setIsPaymentModalOpen(false);
+                
+                // Show success message
+                setSnackbar({
+                  open: true,
+                  message: 'Payment successful! Your reservation is confirmed.',
+                  severity: 'success'
+                });
+                
+                // Move to final step
+                setActiveStep(6);
+              } catch (error: any) {
+                setSnackbar({
+                  open: true,
+                  message: error.message || 'Payment failed. Please try again.',
+                  severity: 'error'
+                });
+              } finally {
+                setLoading(false);
+              }
+            }}
+            amount={calculateTotalAmount()?.totalPriceLKR || 0}
+            isProcessing={loading}
+          />
         </Box>
       )}
 
@@ -932,11 +972,8 @@ const CheckInComponent = () => {
           <Button
             variant="contained"
             onClick={() => {
+              // Reset form and go back to first step
               setActiveStep(0);
-              setCheckIn(null);
-              setCheckOut(null);
-              setRooms([]);
-              setSelectedRoom(null);
               setCustomerData({
                 FirstName: '',
                 LastName: '',
@@ -946,15 +983,7 @@ const CheckInComponent = () => {
                 Nic: '',
                 Passport: ''
               });
-              setReservationData({
-                PackageID: '',
-                Adults: 1,
-                Children: 0,
-                SpecialRequests: '',
-                ArrivalTime: '14:00',
-                DepartureTime: '12:00'
-              });
-              setErrors({});
+              setIsPaymentModalOpen(false);
             }}
             sx={{ 
               bgcolor: '#4caf50', 
