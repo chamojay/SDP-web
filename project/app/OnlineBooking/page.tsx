@@ -155,6 +155,21 @@ const CheckInComponent = () => {
     return nextDay.toISOString().split('T')[0];
   };
 
+  const validationRules = {
+    // Only letters and spaces
+    name: /^[A-Za-z\s]+$/,
+    // Standard email format
+    email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+    // Only numbers and standard phone formatting characters
+    phone: /^[0-9+\-\s]+$/,
+    // Only letters, numbers, and spaces for passport
+    passport: /^[A-Z0-9\s]+$/,
+    // Only numbers and 'V' for NIC
+    nic: /^[0-9]+[Vv]?$/,
+    // Only letters and basic punctuation for special requests
+    specialRequests: /^[A-Za-z0-9\s.,!?()-]+$/
+  };
+
   const validateStep = (): boolean => {
     const newErrors: Record<string, string> = {};
     
@@ -176,52 +191,46 @@ const CheckInComponent = () => {
         newErrors.checkOut = 'Check-out date must be after check-in date';
       }
     } else if (activeStep === 4) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const phoneRegex = /^\+?[\d\s-]{10,10}$/;
-      const nicRegex = /^(?:\d{9}[vV]|\d{12})$/;
-      const passportRegex = /^[A-Z0-9]{6,9}$/;
-
+      // Updated guest information validation
       if (!customerData.FirstName.trim()) {
         newErrors.FirstName = 'First name is required';
-      } else if (customerData.FirstName.length < 2) {
-        newErrors.FirstName = 'First name must be at least 2 characters';
+      } else if (!validationRules.name.test(customerData.FirstName)) {
+        newErrors.FirstName = 'First name can only contain letters';
       }
 
       if (!customerData.LastName.trim()) {
         newErrors.LastName = 'Last name is required';
-      } else if (customerData.LastName.length < 2) {
-        newErrors.LastName = 'Last name must be at least 2 characters';
+      } else if (!validationRules.name.test(customerData.LastName)) {
+        newErrors.LastName = 'Last name can only contain letters';
       }
 
       if (!customerData.Email.trim()) {
         newErrors.Email = 'Email is required';
-      } else if (!emailRegex.test(customerData.Email)) {
+      } else if (!validationRules.email.test(customerData.Email)) {
         newErrors.Email = 'Invalid email format';
       }
 
       if (!customerData.Phone.trim()) {
         newErrors.Phone = 'Phone number is required';
-      } else if (!phoneRegex.test(customerData.Phone)) {
-        newErrors.Phone = 'Phone number must be exactly 10 digits';
+      } else if (!validationRules.phone.test(customerData.Phone)) {
+        newErrors.Phone = 'Phone number can only contain numbers and + - characters';
       }
 
       if (nationality === 'Local') {
         if (!customerData.Nic.trim()) {
           newErrors.Nic = 'NIC is required';
-        } else if (!nicRegex.test(customerData.Nic)) {
-          newErrors.Nic = 'Invalid NIC format (9 digits + V or 12 digits)';
+        } else if (!validationRules.nic.test(customerData.Nic)) {
+          newErrors.Nic = 'NIC can only contain numbers and V';
         }
       } else {
         if (!customerData.Passport.trim()) {
           newErrors.Passport = 'Passport number is required';
-        } else if (!passportRegex.test(customerData.Passport)) {
-          newErrors.Passport = 'Invalid passport format (6-9 alphanumeric characters)';
-        }
-        if (!customerData.Country) {
-          newErrors.Country = 'Country is required';
+        } else if (!validationRules.passport.test(customerData.Passport)) {
+          newErrors.Passport = 'Invalid passport format';
         }
       }
     } else if (activeStep === 2) {
+      // Reservation details validation
       if (reservationData.Adults < 1) {
         newErrors.adults = 'At least one adult is required';
       }
@@ -231,6 +240,9 @@ const CheckInComponent = () => {
       if (selectedRoom && (reservationData.Adults + reservationData.Children) > selectedRoom.MaxPeople) {
         newErrors.adults = `Total guests cannot exceed ${selectedRoom.MaxPeople}`;
       }
+      if (reservationData.SpecialRequests && !validationRules.specialRequests.test(reservationData.SpecialRequests)) {
+        newErrors.SpecialRequests = 'Special requests can only contain letters, numbers, and basic punctuation';
+      }
       if (!reservationData.ArrivalTime) {
         newErrors.ArrivalTime = 'Arrival time is required';
       }
@@ -239,7 +251,6 @@ const CheckInComponent = () => {
       }
     }
 
-    console.log('Validation errors:', newErrors);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
